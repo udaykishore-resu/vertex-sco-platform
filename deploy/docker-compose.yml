@@ -18,7 +18,7 @@
 # dockerfile/volume paths are anchored correctly relative to this file's
 # own directory, which is how Compose resolves them regardless of your cwd)
 # Dashboard: http://localhost:5173   Control plane API: http://localhost:8100
-# Jaeger UI: http://localhost:16686  HAProxy stats: http://localhost:18404
+# Jaeger UI: http://localhost:16687  HAProxy stats: http://localhost:18404
 
 
 x-go-service: &go-service
@@ -105,7 +105,9 @@ services:
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
-      - "16686:16686" # UI
+      - "16687:16686" # UI (host 16687 — 16686 is a common default other
+                       # local tools/projects already bind, e.g. another
+                       # standalone Jaeger container)
     networks: [vertex]
 
   otel-collector:

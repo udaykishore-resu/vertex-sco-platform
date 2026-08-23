@@ -111,7 +111,7 @@ the dashboard.
 
 - Dashboard: http://localhost:5173
 - Control plane API: http://localhost:8100/fleet
-- Jaeger UI: http://localhost:16686
+- Jaeger UI: http://localhost:16687
 - HAProxy stats: http://localhost:18404
 
 **Note**: the Compose stack was authored and reviewed, and its path
@@ -122,6 +122,37 @@ latter). It was not executed end-to-end in the sandbox used to produce this
 repo (no Docker daemon available there) — see `docs/ARCHITECTURE.md` §4 for
 what was and wasn't run end-to-end, and re-run the commands above to
 confirm the fix in your own environment.
+
+### Troubleshooting: "port is already allocated"
+
+`docker compose up` fails at container-start (after a successful build)
+with something like:
+
+```
+Error response from daemon: failed to set up container networking: driver
+failed programming external connectivity on endpoint deploy-jaeger-1:
+Bind for 0.0.0.0:16686 failed: port is already allocated
+```
+
+This means another container or process on your machine already owns that
+host port — nothing to do with the Vertex build itself (a successful
+`[+] Building ... FINISHED` followed by this error confirms the build was
+fine). To diagnose:
+
+```bash
+docker compose down                       # clear any stray containers from a prior run
+docker ps -a --filter "publish=<PORT>"    # find what's actually holding it
+lsof -i :<PORT>                           # if it's a non-Docker process
+```
+
+If it's an unrelated container/process you want to keep running, remap the
+Vertex-side host port in `deploy/docker-compose.yml` (left side of
+`"host:container"` — the container-side port and every internal
+`VERTEX_*_ADDR` stay untouched) and update the URL in this file and in
+`deploy/docker-compose.yml`'s header comment to match. `jaeger`'s UI port
+was moved from `16686` to `16687` for exactly this reason during
+development — `16686` is a common default other local Jaeger instances
+already bind.
 
 ## Frontend dashboard (standalone)
 
