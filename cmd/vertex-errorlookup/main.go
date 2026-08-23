@@ -1,4 +1,4 @@
-// vertex-errorlookup (formerly scoxerrorlookup) — store-tier Vertex service.
+// vertex-errorlookup — store-tier Vertex service.
 //
 // Queryable interface mapping device error codes to end-user-facing descriptions.
 //

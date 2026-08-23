@@ -11,7 +11,7 @@ development.
 
 | # | Flaw (architecture review) | Fix in Vertex | Where |
 |---|---|---|---|
-| 1 | `scoxcoreservice` is a soft single point of failure — everything coordinates through it synchronously, no fallback/degraded mode | `vertex-core` now *publishes* domain events after each state transition instead of calling dependents inline; every remaining downstream call goes through a `resilience.Guard` (circuit breaker + bulkhead); an explicit `DEGRADED` state exists and is entered automatically when a guarded call fails | `internal/statemachine`, `internal/resilience`, `cmd/vertex-core` |
+| 1 | The lane state manager is a soft single point of failure — everything coordinates through it synchronously, no fallback/degraded mode | `vertex-core` now *publishes* domain events after each state transition instead of calling dependents inline; every remaining downstream call goes through a `resilience.Guard` (circuit breaker + bulkhead); an explicit `DEGRADED` state exists and is entered automatically when a guarded call fails | `internal/statemachine`, `internal/resilience`, `cmd/vertex-core` |
 | 2 | MQTT broker has no HA story — single `mosquitto`, no clustering, no persistent sessions, no QoS/dead-letter handling | Dependency-free MQTT 3.1.1 client with QoS1 + persistent sessions (`CleanSession=false`) + automatic reconnect/backoff + resubscribe-on-reconnect; compose stack runs a 3-node EMQX cluster behind an HAProxy VIP | `internal/eventbus/mqtt.go`, `deploy/docker-compose.yml`, `deploy/haproxy/haproxy.cfg` |
 | 3 | Redis overloaded — cache + queue + broker on one instance, no failure-domain isolation | Split into `vertex-cache-redis` (LRU eviction, no persistence) and `vertex-queue-redis` (AOF durability) as separate services/failure domains | `deploy/docker-compose.yml` |
 | 4 | No zero-trust/identity layer between tiers — no mTLS, no workload identity | `internal/identity` implements real mTLS via stdlib `crypto/tls`/`x509` with SPIFFE-style identity URIs (`spiffe://vertex.local/<tier>/<service>`); dev CA + per-service leaf certs generated and verified for all 24 services | `internal/identity/mtls.go`, `deploy/certs/generate-dev-ca.sh` |
@@ -21,56 +21,56 @@ development.
 | 8 | No end-to-end tracing — cross-tier bugs (over the MQTT hop especially) are invisible | `internal/tracing` propagates a W3C-traceparent-compatible `TraceContext` inside every event envelope and across HTTP; spans are emitted with a pluggable exporter (stdout JSON by default, OTLP-ready); `deploy/otel` has a working collector config wired to Jaeger | `internal/tracing`, `internal/domain/events.go` (`TraceContext`), `deploy/otel/otel-collector-config.yaml` |
 | 9 | Offline/degraded-mode behavior implicit, not designed — no defined contract for what happens if connectivity drops mid-transaction | `internal/outbox` is a durable, fsynced, append-only local queue: every event that fails to publish is durably enqueued and replayed in order once the bus is reachable again, with no data loss across a process crash | `internal/outbox/outbox.go`, wired into `cmd/vertex-core` |
 
-## 2. Service rename table
+## 2. Service catalog
 
-Every original Jarvis/SCO-X service has a direct, documented Vertex
-counterpart. Services marked **(reference impl)** have real business logic
-implemented and tested in this repo; services marked **(scaffold)** compile,
-run, and expose a health endpoint following the same pattern, with
-domain-specific logic left as a clearly marked extension point (see each
-`main.go`'s `// TODO` markers).
+Every Vertex service maps to a specific role in the platform. Services
+marked **(reference impl)** have real business logic implemented and
+tested in this repo; services marked **(scaffold)** compile, run, and
+expose a health endpoint following the same pattern, with domain-specific
+logic left as a clearly marked extension point (see each `main.go`'s
+`// TODO` markers).
 
 ### Cloud tier
 
-| Original | Vertex | Status |
+| Service | Role | Status |
 |---|---|---|
-| Centralized Config Mgmt / jarvisconfigservice | `vertex-config` | reference impl (versioned + canary) |
-| Edge Control Plane / NCR Edge UI | `vertex-control-plane` | reference impl (fleet API + dashboard backend) |
+| `vertex-config` | Versioned configuration with canary rollout and rollback | reference impl (versioned + canary) |
+| `vertex-control-plane` | Fleet-wide health aggregation, API for the operations dashboard | reference impl (fleet API + dashboard backend) |
 
 ### Store tier (Intelligent Edge Server)
 
-| Original | Vertex | Status |
+| Service | Role | Status |
 |---|---|---|
-| scoxcoreservice | `vertex-core` | reference impl |
-| scoxintervention | `vertex-intervention` | reference impl |
-| scoxweightsecurity | `vertex-weight` | reference impl |
-| Edge Agent | `vertex-agent` | reference impl (canary deploy + auto-rollback) |
-| scoxcoupon | `vertex-coupon` | scaffold |
-| scoxvisualverify | `vertex-visualverify` | scaffold |
-| scoxtrilight | `vertex-trilight` | scaffold |
-| scoxpicklist | `vertex-picklist` | scaffold |
-| scoxcashservice | `vertex-cash` | scaffold |
-| scoxdoc | `vertex-doc` | scaffold |
-| scoxprinter | `vertex-print` | scaffold |
-| scoxweightlearning | `vertex-weightlearning` | scaffold |
-| scoxerrorlookup | `vertex-errorlookup` | scaffold |
-| scoxauthentication | `vertex-auth` | scaffold |
-| scoxresources | `vertex-resources` | scaffold |
-| scoxinputsequencer | `vertex-inputsequencer` | scaffold |
-| scoxtb7 | `vertex-pos-bridge` | scaffold |
-| POSless Adapter | `vertex-posless-adapter` | scaffold |
-| mosquitto | EMQX cluster (`emqx1/2/3` + `mqtt-lb`) | infra (replaces app-level service) |
-| Redis | `vertex-cache-redis` + `vertex-queue-redis` | infra (split) |
-| MongoDB | `vertex-store-db` | infra |
+| `vertex-core` | Lane state machine — the central component driving a checkout transaction | reference impl |
+| `vertex-intervention` | Intervention lifecycle management (create → resolve) | reference impl |
+| `vertex-weight` | Bag-scale weight evaluation and mismatch detection | reference impl |
+| `vertex-agent` | Store-side deployment agent — canary rollout, health-gated auto-rollback | reference impl (canary deploy + auto-rollback) |
+| `vertex-coupon` | Coupon limit enforcement and coupon-sensor control | scaffold |
+| `vertex-visualverify` | Visual-verify item handling and associated interventions | scaffold |
+| `vertex-trilight` | Lane trilight indicator state | scaffold |
+| `vertex-picklist` | Picklist item data serving/editing | scaffold |
+| `vertex-cash` | Cash-device payload translation and error events | scaffold |
+| `vertex-doc` | Document (receipt/journal) preparation for printing | scaffold |
+| `vertex-print` | Printer device connectivity | scaffold |
+| `vertex-weightlearning` | Weight-observation capture for the item-weight learning pipeline | scaffold |
+| `vertex-errorlookup` | Device error code → description lookup | scaffold |
+| `vertex-auth` | Shopper/associate authentication | scaffold |
+| `vertex-resources` | Shared localized strings/media asset repository | scaffold |
+| `vertex-inputsequencer` | Scan/keyed item input sequencing | scaffold |
+| `vertex-pos-bridge` | Legacy POS integration bridge | scaffold |
+| `vertex-posless-adapter` | POS-less / thin-client integration | scaffold |
+| EMQX cluster (`emqx1/2/3` + `mqtt-lb`) | Clustered MQTT broker | infra |
+| `vertex-cache-redis` + `vertex-queue-redis` | Split cache / durable queue | infra |
+| `vertex-store-db` | Store-tier persistence (MongoDB) | infra |
 
 ### Terminal tier (SCO Lane)
 
-| Original | Vertex | Status |
+| Service | Role | Status |
 |---|---|---|
-| scoxendpoint | `vertex-endpoint` | scaffold |
-| deviceServerCTM | `vertex-devicegateway` | scaffold |
-| launchpad + sendscox-utils | `vertex-launchpad` | scaffold |
-| electron app | frontend equivalent not in scope for terminal UI (dashboard in `frontend/` covers the operations/control-plane UI instead) | n/a |
+| `vertex-endpoint` | Lane registration/endpoint identity, lane-local business logic (EOD, reboot, shutdown) | scaffold |
+| `vertex-devicegateway` | Hardware abstraction layer for physical devices (scanner, scale, printer, cash, trilight) | scaffold |
+| `vertex-launchpad` | Terminal UI launcher, diagnostics, software/terminal lifecycle control | scaffold |
+| — | Shopper-facing checkout UI is out of scope for this exercise; the operations/control-plane UI is covered by the dashboard in `frontend/` | n/a |
 
 ## 3. Design principles carried through every service
 

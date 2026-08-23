@@ -1,4 +1,4 @@
-// vertex-picklist (formerly scoxpicklist) — store-tier Vertex service.
+// vertex-picklist — store-tier Vertex service.
 //
 // Serves and edits picklist item data displayed on the lane UI.
 //

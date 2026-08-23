@@ -1,4 +1,4 @@
-// vertex-visualverify (formerly scoxvisualverify) — store-tier Vertex service.
+// vertex-visualverify — store-tier Vertex service.
 //
 // Creates and manages visual-verify items and their associated interventions.
 //

@@ -1,4 +1,4 @@
-// vertex-doc (formerly scoxdoc) — store-tier Vertex service.
+// vertex-doc — store-tier Vertex service.
 //
 // Prepares documents (receipts, journals) for printing, consumed by vertex-print.
 //

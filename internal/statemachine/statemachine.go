@@ -1,5 +1,5 @@
 // Package statemachine implements the lane state machine hosted by
-// vertex-core (renamed from scoxcoreservice). Compared to the original
+// vertex-core. Compared to the original
 // design, two things changed per the architecture review:
 //
 //  1. Transitions are emitted as domain events (published on the bus) after

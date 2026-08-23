@@ -1,4 +1,4 @@
-// vertex-trilight (formerly scoxtrilight) — store-tier Vertex service.
+// vertex-trilight — store-tier Vertex service.
 //
 // Implements business rules for maintaining correct trilight indicator state on the lane, reacting to lane.state.transitioned events.
 //

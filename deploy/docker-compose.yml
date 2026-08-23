@@ -13,15 +13,17 @@
 #   - Each service gets a VERTEX_STORE_ID and talks to the shared broker
 #     VIP — this is the same topology a real multi-lane store would use.
 #
-# Run: docker compose up --build
+# Run from the repo root: docker compose -f deploy/docker-compose.yml up --build
+# (or `cd deploy && docker compose up --build` — both work now that context/
+# dockerfile/volume paths are anchored correctly relative to this file's
+# own directory, which is how Compose resolves them regardless of your cwd)
 # Dashboard: http://localhost:5173   Control plane API: http://localhost:8100
-# Jaeger UI: http://localhost:16686  EMQX dashboard (node 1): http://localhost:18083
+# Jaeger UI: http://localhost:16686  HAProxy stats: http://localhost:18404
 
-version: "3.9"
 
 x-go-service: &go-service
   build:
-    context: .
+    context: ..
     dockerfile: deploy/Dockerfile.service
   depends_on:
     mqtt-lb:
@@ -70,7 +72,7 @@ services:
     image: haproxy:2.9-alpine
     depends_on: [emqx1, emqx2, emqx3]
     volumes:
-      - ./deploy/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
       - "1883:1883"   # MQTT VIP
       - "18404:8404"  # HAProxy stats
@@ -110,7 +112,7 @@ services:
     image: otel/opentelemetry-collector-contrib:0.102.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      - ./deploy/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+      - ./otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     depends_on: [jaeger]
     networks: [vertex]
 
@@ -120,7 +122,7 @@ services:
   vertex-config:
     <<: *go-service
     build:
-      context: .
+      context: ..
       dockerfile: deploy/Dockerfile.service
       args: {SERVICE: vertex-config}
     environment:
@@ -131,7 +133,7 @@ services:
   vertex-control-plane:
     <<: *go-service
     build:
-      context: .
+      context: ..
       dockerfile: deploy/Dockerfile.service
       args: {SERVICE: vertex-control-plane}
     environment:
@@ -146,7 +148,7 @@ services:
   vertex-core:
     <<: *go-service
     build:
-      context: .
+      context: ..
       dockerfile: deploy/Dockerfile.service
       args: {SERVICE: vertex-core}
     environment:
@@ -158,7 +160,7 @@ services:
   vertex-intervention:
     <<: *go-service
     build:
-      context: .
+      context: ..
       dockerfile: deploy/Dockerfile.service
       args: {SERVICE: vertex-intervention}
     environment:
@@ -170,7 +172,7 @@ services:
   vertex-weight:
     <<: *go-service
     build:
-      context: .
+      context: ..
       dockerfile: deploy/Dockerfile.service
       args: {SERVICE: vertex-weight}
     environment:
@@ -182,7 +184,7 @@ services:
   vertex-agent:
     <<: *go-service
     build:
-      context: .
+      context: ..
       dockerfile: deploy/Dockerfile.service
       args: {SERVICE: vertex-agent}
     environment:
@@ -200,7 +202,7 @@ services:
   # ---------------------------------------------------------------------
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     environment:
       VITE_CONTROL_PLANE_URL: "http://localhost:8100"

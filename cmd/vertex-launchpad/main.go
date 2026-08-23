@@ -1,4 +1,4 @@
-// vertex-launchpad (formerly launchpad + sendscox-utils) — terminal-tier Vertex service, running as a
+// vertex-launchpad — terminal-tier Vertex service, running as a
 // DaemonSet on each physical SCO lane.
 //
 // Background terminal UI that launches the SCO application, performs diagnostics, and controls software/terminal shutdown & reboot.

@@ -1,5 +1,4 @@
-// vertex-weight (formerly scoxweightsecurity + part of scoxweightlearning)
-// evaluates bag-scale weight events. On mismatch it publishes both a
+// vertex-weight evaluates bag-scale weight events. On mismatch it publishes both a
 // weight.mismatch_detected event (consumed by analytics/weight-learning
 // pipelines) and an intervention.requested event directly — it does not
 // call vertex-core synchronously; vertex-core only observes the resulting

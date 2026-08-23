@@ -92,12 +92,17 @@ development for all 24 services with `openssl x509 -noout -subject -issuer`.
 
 ## Full stack (Docker Compose)
 
-```bash
-cd deploy && docker compose -f docker-compose.yml -f ../frontend/../deploy/docker-compose.yml up --build
-```
+Works the same from either location, since Compose resolves relative
+`context:`/`dockerfile:`/volume paths relative to the compose file's own
+directory, not your shell's cwd:
 
-(Compose file lives at `deploy/docker-compose.yml`; run `docker compose -f
-deploy/docker-compose.yml up --build` from the repo root.)
+```bash
+# from the repo root
+docker compose -f deploy/docker-compose.yml up --build
+
+# or, equivalently
+cd deploy && docker compose up --build
+```
 
 Brings up: 3-node EMQX cluster + HAProxy VIP, split Redis (cache/queue),
 MongoDB, Jaeger + OTel collector, `vertex-config`, `vertex-control-plane`,
@@ -109,10 +114,14 @@ the dashboard.
 - Jaeger UI: http://localhost:16686
 - HAProxy stats: http://localhost:18404
 
-**Note**: the Compose stack was authored and reviewed but not executed in
-the build environment used to produce this repo (no Docker daemon
-available there) — see `docs/ARCHITECTURE.md` §4 for what was and wasn't
-run end-to-end.
+**Note**: the Compose stack was authored and reviewed, and its path
+resolution was fixed after a real run surfaced a `context`/`dockerfile`
+path bug (relative paths in a Compose file resolve against the file's own
+directory, not the invoking shell's cwd — the original file assumed the
+latter). It was not executed end-to-end in the sandbox used to produce this
+repo (no Docker daemon available there) — see `docs/ARCHITECTURE.md` §4 for
+what was and wasn't run end-to-end, and re-run the commands above to
+confirm the fix in your own environment.
 
 ## Frontend dashboard (standalone)
 

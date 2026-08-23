@@ -3,7 +3,7 @@
 // vertex-weight, vertex-coupon, etc.) through a CircuitBreaker + Bulkhead
 // pair so a slow or failing dependent service degrades that one interaction
 // instead of stalling the whole checkout lane (architecture review flaw #1
-// and improvement "circuit breakers/bulkheads around scoxcoreservice's
+// and improvement "circuit breakers/bulkheads around the core service's
 // dependencies").
 package resilience
 

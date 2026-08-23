@@ -1,4 +1,4 @@
-// vertex-print (formerly scoxprinter) — store-tier Vertex service.
+// vertex-print — store-tier Vertex service.
 //
 // Connects to the printer device via vertex-devicegateway and renders documents from vertex-doc.
 //

@@ -1,4 +1,4 @@
-// vertex-resources (formerly scoxresources) — store-tier Vertex service.
+// vertex-resources — store-tier Vertex service.
 //
 // Central repository for shared localized strings and media assets (Picklist, Tare, TBMessage, Intervention, Doc, Launchpad sections), exposed as a toolkit service.
 //

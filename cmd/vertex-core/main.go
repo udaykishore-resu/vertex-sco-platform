@@ -1,4 +1,4 @@
-// vertex-core (formerly scoxcoreservice) is the lane state manager. It
+// vertex-core is the lane state manager. It
 // hosts one statemachine.Machine per active lane and is the hub that
 // dependent services react to via published events — it no longer makes
 // synchronous inline calls into every dependent service to progress a
@@ -8,7 +8,7 @@
 // intervention-creation side effect of a WEIGHING -> INTERVENTION move) goes
 // through a resilience.Guard: if the dependency's circuit is open or the
 // bulkhead is full, the lane transitions to DEGRADED instead of hanging —
-// directly fixing "scoxcoreservice is a soft single point of failure".
+// directly fixing "the core state-manager as a soft single point of failure".
 package main
 
 import (

@@ -1,4 +1,4 @@
-// vertex-cash (formerly scoxcashservice) — store-tier Vertex service.
+// vertex-cash — store-tier Vertex service.
 //
 // Translates device-server XML/POS payloads for cash-handling devices into JSON events, and republishes device errors to the bus.
 //

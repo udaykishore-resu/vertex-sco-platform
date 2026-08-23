@@ -1,4 +1,4 @@
-// vertex-weightlearning (formerly scoxweightlearning) — store-tier Vertex service.
+// vertex-weightlearning — store-tier Vertex service.
 //
 // Receives and stores weight observations as training input for the item-weight learning pipeline.
 //

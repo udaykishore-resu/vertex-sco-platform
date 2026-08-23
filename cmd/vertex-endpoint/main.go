@@ -1,4 +1,4 @@
-// vertex-endpoint (formerly scoxendpoint) — terminal-tier Vertex service, running as a
+// vertex-endpoint — terminal-tier Vertex service, running as a
 // DaemonSet on each physical SCO lane.
 //
 // Provides the lane endpoint UUID via the event bus and REST API; hosts lane-local business logic (EOD, reboot, shutdown).

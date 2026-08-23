@@ -1,4 +1,4 @@
-// vertex-auth (formerly scoxauthentication) — store-tier Vertex service.
+// vertex-auth — store-tier Vertex service.
 //
 // Authenticates shopper/associate sessions, either directly or by forwarding to the POS via vertex-pos-bridge.
 //

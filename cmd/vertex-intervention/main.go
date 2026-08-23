@@ -1,4 +1,4 @@
-// vertex-intervention (formerly scoxintervention) manages the intervention
+// vertex-intervention manages the intervention
 // lifecycle from creation to resolution. It is decoupled from vertex-core:
 // it subscribes to intervention.requested events on the bus rather than
 // being called synchronously, and publishes intervention.resolved when an

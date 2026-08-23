@@ -1,4 +1,4 @@
-// vertex-pos-bridge (formerly scoxtb7) — store-tier Vertex service.
+// vertex-pos-bridge — store-tier Vertex service.
 //
 // Interfaces between a legacy POS and the core Vertex services (intervention, core, UI) for thin-client-with-legacy-POS deployments.
 //

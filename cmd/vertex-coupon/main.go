@@ -1,4 +1,4 @@
-// vertex-coupon (formerly scoxcoupon) — store-tier Vertex service.
+// vertex-coupon — store-tier Vertex service.
 //
 // Imposes coupon limits, monitors coupon usage per transaction, publishes intervention.requested when thresholds are exceeded, and controls the coupon sensor device.
 //

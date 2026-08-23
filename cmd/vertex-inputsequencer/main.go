@@ -1,4 +1,4 @@
-// vertex-inputsequencer (formerly scoxinputsequencer) — store-tier Vertex service.
+// vertex-inputsequencer — store-tier Vertex service.
 //
 // Sequences scanned and keyed item input into an ordered queue consumed by vertex-picklist and vertex-core.
 //
