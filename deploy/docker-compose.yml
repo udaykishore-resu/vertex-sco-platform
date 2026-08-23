@@ -17,7 +17,7 @@
 # (or `cd deploy && docker compose up --build` — both work now that context/
 # dockerfile/volume paths are anchored correctly relative to this file's
 # own directory, which is how Compose resolves them regardless of your cwd)
-# Dashboard: http://localhost:5173   Control plane API: http://localhost:8100
+# Dashboard: http://localhost:15173   Control plane API: http://localhost:18100
 # Jaeger UI: http://localhost:16687  HAProxy stats: http://localhost:18404
 
 
@@ -130,7 +130,7 @@ services:
     environment:
       VERTEX_BROKER_ADDR: "mqtt-lb:1883"
       VERTEX_HTTP_ADDR: ":8090"
-    ports: ["8090:8090"]
+    ports: ["18090:8090"]  # host 18090 (8080-range is a very common dev-tool default)
 
   vertex-control-plane:
     <<: *go-service
@@ -142,7 +142,7 @@ services:
       VERTEX_HTTP_ADDR: ":8100"
       VERTEX_CONFIG_ADDR: "http://vertex-config:8090"
     depends_on: [vertex-config]
-    ports: ["8100:8100"]
+    ports: ["18100:8100"]
 
   # ---------------------------------------------------------------------
   # Store-tier Vertex services (one representative store: store-01)
@@ -157,7 +157,7 @@ services:
       VERTEX_BROKER_ADDR: "mqtt-lb:1883"
       VERTEX_STORE_ID: "store-01"
       VERTEX_HTTP_ADDR: ":8081"
-    ports: ["8081:8081"]
+    ports: ["18081:8081"]
 
   vertex-intervention:
     <<: *go-service
@@ -169,7 +169,7 @@ services:
       VERTEX_BROKER_ADDR: "mqtt-lb:1883"
       VERTEX_STORE_ID: "store-01"
       VERTEX_HTTP_ADDR: ":8082"
-    ports: ["8082:8082"]
+    ports: ["18082:8082"]
 
   vertex-weight:
     <<: *go-service
@@ -181,7 +181,7 @@ services:
       VERTEX_BROKER_ADDR: "mqtt-lb:1883"
       VERTEX_STORE_ID: "store-01"
       VERTEX_HTTP_ADDR: ":8083"
-    ports: ["8083:8083"]
+    ports: ["18083:8083"]
 
   vertex-agent:
     <<: *go-service
@@ -197,7 +197,7 @@ services:
       VERTEX_CONTROL_PLANE_ADDR: "http://vertex-control-plane:8100"
       VERTEX_MANAGED_SERVICES: "vertex-core,vertex-intervention,vertex-weight"
     depends_on: [vertex-config, vertex-control-plane]
-    ports: ["8095:8095"]
+    ports: ["18095:8095"]
 
   # ---------------------------------------------------------------------
   # Dashboard
@@ -206,9 +206,12 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    environment:
-      VITE_CONTROL_PLANE_URL: "http://localhost:8100"
-    ports: ["5173:80"]
+      args:
+        # Baked into the static bundle at build time (see frontend/Dockerfile) —
+        # this is the browser-facing URL, so it must be the *host*-mapped
+        # control-plane port below, not the container-internal one.
+        VITE_CONTROL_PLANE_URL: "http://localhost:18100"
+    ports: ["15173:80"]  # host 15173 (5173 is Vite's own common default)
     depends_on: [vertex-control-plane]
     networks: [vertex]
 

@@ -109,8 +109,8 @@ MongoDB, Jaeger + OTel collector, `vertex-config`, `vertex-control-plane`,
 `vertex-core`, `vertex-intervention`, `vertex-weight`, `vertex-agent`, and
 the dashboard.
 
-- Dashboard: http://localhost:5173
-- Control plane API: http://localhost:8100/fleet
+- Dashboard: http://localhost:15173
+- Control plane API: http://localhost:18100/fleet
 - Jaeger UI: http://localhost:16687
 - HAProxy stats: http://localhost:18404
 
