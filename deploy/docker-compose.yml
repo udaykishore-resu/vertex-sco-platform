@@ -13,6 +13,10 @@
 #   - Each service gets a VERTEX_STORE_ID and talks to the shared broker
 #     VIP — this is the same topology a real multi-lane store would use.
 #
+# Before running, check every host port below is free:
+#   ./check-ports.sh          (from this directory)
+#   make compose-up           (from the repo root — runs the check automatically)
+#
 # Run from the repo root: docker compose -f deploy/docker-compose.yml up --build
 # (or `cd deploy && docker compose up --build` — both work now that context/
 # dockerfile/volume paths are anchored correctly relative to this file's

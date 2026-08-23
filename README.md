@@ -74,8 +74,8 @@ go build -o /tmp/vertex-core ./cmd/vertex-core && VERTEX_HTTP_ADDR=:8081 /tmp/ve
 # full test suite
 go test ./...
 
-# full stack
-cd deploy && docker compose up --build
+# full stack (checks all host ports are free first)
+cd deploy && ./check-ports.sh && docker compose up --build
 ```
 
 See [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for the full walkthrough, including

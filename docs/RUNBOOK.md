@@ -92,9 +92,21 @@ development for all 24 services with `openssl x509 -noout -subject -issuer`.
 
 ## Full stack (Docker Compose)
 
-Works the same from either location, since Compose resolves relative
-`context:`/`dockerfile:`/volume paths relative to the compose file's own
-directory, not your shell's cwd:
+**Check ports are free first** — every host port the stack binds is listed
+in `deploy/docker-compose.yml`; `deploy/check-ports.sh` reads that list
+directly (so it can't drift out of sync) and reports which, if any, are
+already taken by something else on your machine, before Docker starts
+pulling/building anything:
+
+```bash
+cd deploy && ./check-ports.sh
+# or, from the repo root, this runs automatically before the stack starts:
+make compose-up
+```
+
+Then bring up the stack. Works the same from either location, since
+Compose resolves relative `context:`/`dockerfile:`/volume paths relative to
+the compose file's own directory, not your shell's cwd:
 
 ```bash
 # from the repo root
@@ -125,13 +137,16 @@ confirm the fix in your own environment.
 
 ### Troubleshooting: "port is already allocated"
 
-`docker compose up` fails at container-start (after a successful build)
-with something like:
+`./check-ports.sh` (see above) catches this before Docker starts in the
+common case. You can still hit it if a port gets taken *between* running
+the check and `docker compose up` finishing, or if you skip the check
+entirely — `docker compose up` fails at container-start (after a
+successful build) with something like:
 
 ```
 Error response from daemon: failed to set up container networking: driver
 failed programming external connectivity on endpoint deploy-jaeger-1:
-Bind for 0.0.0.0:16686 failed: port is already allocated
+Bind for 0.0.0.0:16687 failed: port is already allocated
 ```
 
 This means another container or process on your machine already owns that
@@ -141,7 +156,8 @@ fine). To diagnose:
 
 ```bash
 docker compose down                       # clear any stray containers from a prior run
-docker ps -a --filter "publish=<PORT>"    # find what's actually holding it
+./check-ports.sh                          # re-run the preflight check
+docker ps -a --filter "publish=<PORT>"    # find what's actually holding it (if Docker)
 lsof -i :<PORT>                           # if it's a non-Docker process
 ```
 
@@ -149,10 +165,7 @@ If it's an unrelated container/process you want to keep running, remap the
 Vertex-side host port in `deploy/docker-compose.yml` (left side of
 `"host:container"` — the container-side port and every internal
 `VERTEX_*_ADDR` stay untouched) and update the URL in this file and in
-`deploy/docker-compose.yml`'s header comment to match. `jaeger`'s UI port
-was moved from `16686` to `16687` for exactly this reason during
-development — `16686` is a common default other local Jaeger instances
-already bind.
+`deploy/docker-compose.yml`'s header comment to match.
 
 ## Frontend dashboard (standalone)
 

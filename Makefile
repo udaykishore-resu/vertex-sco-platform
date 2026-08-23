@@ -1,4 +1,4 @@
-.PHONY: build test vet fmt certs frontend-build frontend-dev compose-up clean
+.PHONY: build test vet fmt certs frontend-build frontend-dev check-ports compose-up clean
 
 SERVICES := $(shell ls cmd)
 
@@ -27,7 +27,10 @@ frontend-build: ## Typecheck + build the dashboard
 frontend-dev: ## Run the dashboard dev server
 	cd frontend && npm install && npm run dev
 
-compose-up: ## Bring up the full docker-compose stack
+check-ports: ## Verify every Vertex host port is free before starting the stack
+	./deploy/check-ports.sh
+
+compose-up: check-ports ## Verify ports, then bring up the full docker-compose stack
 	cd deploy && docker compose up --build
 
 clean:
