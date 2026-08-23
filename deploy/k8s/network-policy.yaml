@@ -1,0 +1,26 @@
+# Default-deny + explicit allow-list between tiers, complementing the mTLS
+# identity layer (internal/identity) with network-level zero-trust: even a
+# compromised pod can't reach services it has no business talking to.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: vertex-sco
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-core-to-broker-and-dependents
+  namespace: vertex-sco
+spec:
+  podSelector:
+    matchLabels: {app: vertex-core}
+  policyTypes: [Egress]
+  egress:
+    - to: [{podSelector: {matchLabels: {app: mqtt-lb}}}]
+      ports: [{protocol: TCP, port: 1883}]
+    - to: [{podSelector: {matchLabels: {app: vertex-intervention}}}]
+    - to: [{podSelector: {matchLabels: {app: vertex-config}}}]

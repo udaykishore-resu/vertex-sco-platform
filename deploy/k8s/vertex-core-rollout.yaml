@@ -1,0 +1,72 @@
+# Argo Rollouts canary strategy for vertex-core, mirroring the same
+# staged-canary + auto-rollback contract implemented in software by
+# vertex-config + vertex-agent (deploy/docker-compose.yml). In a cluster
+# that has Argo Rollouts installed, this is the Kubernetes-native version of
+# that same "no unversioned, no-canary deploy pushes" fix (flaw #5):
+# progressive traffic shift, automated analysis gating each step, and
+# automatic rollback if the AnalysisTemplate's success condition fails.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: vertex-core
+  namespace: vertex-sco
+spec:
+  replicas: 6
+  strategy:
+    canary:
+      steps:
+        - setWeight: 10
+        - pause: {duration: 120}
+        - analysis:
+            templates:
+              - templateName: vertex-core-error-rate
+        - setWeight: 50
+        - pause: {duration: 300}
+        - analysis:
+            templates:
+              - templateName: vertex-core-error-rate
+        - setWeight: 100
+  selector:
+    matchLabels:
+      app: vertex-core
+  template:
+    metadata:
+      labels:
+        app: vertex-core
+    spec:
+      containers:
+        - name: vertex-core
+          image: ghcr.io/udaykishore-resu/vertex-core:latest
+          ports:
+            - containerPort: 8081
+          env:
+            - name: VERTEX_BROKER_ADDR
+              value: "mqtt-lb.vertex-sco.svc.cluster.local:1883"
+            - name: VERTEX_STORE_ID
+              valueFrom:
+                fieldRef: {fieldPath: metadata.namespace}
+          readinessProbe:
+            httpGet: {path: /health, port: 8081}
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: {path: /health, port: 8081}
+            initialDelaySeconds: 10
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: vertex-core-error-rate
+  namespace: vertex-sco
+spec:
+  metrics:
+    - name: error-rate
+      interval: 30s
+      successCondition: result[0] < 0.05
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(http_requests_total{app="vertex-core",status=~"5.."}[2m]))
+            /
+            sum(rate(http_requests_total{app="vertex-core"}[2m]))

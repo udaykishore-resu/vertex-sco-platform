@@ -1,0 +1,24 @@
+# Ready to receive OTLP once internal/tracing's exporter is swapped from the
+# default stdout shim to a real OTLP exporter (see internal/tracing's
+# package doc — it's a one-interface change, not a rewrite).
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  logging:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp/jaeger, logging]

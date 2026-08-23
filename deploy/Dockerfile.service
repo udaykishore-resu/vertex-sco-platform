@@ -1,0 +1,19 @@
+# Builds any cmd/<SERVICE> binary into a minimal distroless-style image.
+# Usage: docker build --build-arg SERVICE=vertex-core -f deploy/Dockerfile.service .
+#
+# Zero third-party Go modules (see go.mod) means this build never needs
+# network access to a module proxy — relevant both for air-gapped CI and
+# for the supply-chain-risk argument made in docs/ARCHITECTURE.md.
+
+FROM golang:1.22-alpine AS build
+ARG SERVICE=vertex-core
+WORKDIR /src
+COPY go.mod ./
+COPY internal ./internal
+COPY cmd ./cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/service ./cmd/${SERVICE}
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/service /service
+USER nonroot:nonroot
+ENTRYPOINT ["/service"]

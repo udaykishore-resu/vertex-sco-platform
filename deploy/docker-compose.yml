@@ -1,0 +1,220 @@
+# Vertex SCO Platform — local development / demo stack.
+#
+# This addresses several architecture-review flaws directly in the infra
+# layer (not just application code):
+#   - MQTT: a 3-node EMQX cluster behind a single VIP, instead of one
+#     mosquitto instance, so a broker-node failure doesn't take every
+#     terminal<->store channel down (flaw #2).
+#   - Redis: split into vertex-cache-redis and vertex-queue-redis so a
+#     queuing spike can't evict cache entries or vice versa (flaw #3).
+#   - Jaeger + OTLP collector: a real place for internal/tracing spans to
+#     land once the exporter is swapped from the default stdout shim
+#     (flaw #8).
+#   - Each service gets a VERTEX_STORE_ID and talks to the shared broker
+#     VIP — this is the same topology a real multi-lane store would use.
+#
+# Run: docker compose up --build
+# Dashboard: http://localhost:5173   Control plane API: http://localhost:8100
+# Jaeger UI: http://localhost:16686  EMQX dashboard (node 1): http://localhost:18083
+
+version: "3.9"
+
+x-go-service: &go-service
+  build:
+    context: .
+    dockerfile: deploy/Dockerfile.service
+  depends_on:
+    mqtt-lb:
+      condition: service_started
+  environment:
+    VERTEX_BROKER_ADDR: "mqtt-lb:1883"
+    VERTEX_STORE_ID: "store-01"
+  networks: [vertex]
+  restart: unless-stopped
+
+services:
+  # ---------------------------------------------------------------------
+  # Messaging: 3-node EMQX cluster + HAProxy VIP (flaw #2 fix)
+  # ---------------------------------------------------------------------
+  emqx1:
+    image: emqx/emqx:5.4
+    hostname: emqx1
+    environment:
+      EMQX_NODE_NAME: "emqx@emqx1"
+      EMQX_CLUSTER__DISCOVERY_STRATEGY: "static"
+      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1, emqx@emqx2, emqx@emqx3]"
+    networks: [vertex]
+    volumes: [emqx1-data:/opt/emqx/data]
+
+  emqx2:
+    image: emqx/emqx:5.4
+    hostname: emqx2
+    environment:
+      EMQX_NODE_NAME: "emqx@emqx2"
+      EMQX_CLUSTER__DISCOVERY_STRATEGY: "static"
+      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1, emqx@emqx2, emqx@emqx3]"
+    networks: [vertex]
+    volumes: [emqx2-data:/opt/emqx/data]
+
+  emqx3:
+    image: emqx/emqx:5.4
+    hostname: emqx3
+    environment:
+      EMQX_NODE_NAME: "emqx@emqx3"
+      EMQX_CLUSTER__DISCOVERY_STRATEGY: "static"
+      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1, emqx@emqx2, emqx@emqx3]"
+    networks: [vertex]
+    volumes: [emqx3-data:/opt/emqx/data]
+
+  mqtt-lb:
+    image: haproxy:2.9-alpine
+    depends_on: [emqx1, emqx2, emqx3]
+    volumes:
+      - ./deploy/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "1883:1883"   # MQTT VIP
+      - "18404:8404"  # HAProxy stats
+    networks: [vertex]
+
+  # ---------------------------------------------------------------------
+  # Data layer: split Redis (cache vs. queue) + MongoDB (flaw #3 fix)
+  # ---------------------------------------------------------------------
+  vertex-cache-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    networks: [vertex]
+
+  vertex-queue-redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"] # durability for queue semantics
+    volumes: [queue-redis-data:/data]
+    networks: [vertex]
+
+  vertex-store-db:
+    image: mongo:7
+    volumes: [mongo-data:/data/db]
+    networks: [vertex]
+
+  # ---------------------------------------------------------------------
+  # Observability: OTLP collector + Jaeger (flaw #8 fix target)
+  # ---------------------------------------------------------------------
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # UI
+    networks: [vertex]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.102.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./deploy/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    depends_on: [jaeger]
+    networks: [vertex]
+
+  # ---------------------------------------------------------------------
+  # Cloud-tier Vertex services
+  # ---------------------------------------------------------------------
+  vertex-config:
+    <<: *go-service
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.service
+      args: {SERVICE: vertex-config}
+    environment:
+      VERTEX_BROKER_ADDR: "mqtt-lb:1883"
+      VERTEX_HTTP_ADDR: ":8090"
+    ports: ["8090:8090"]
+
+  vertex-control-plane:
+    <<: *go-service
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.service
+      args: {SERVICE: vertex-control-plane}
+    environment:
+      VERTEX_HTTP_ADDR: ":8100"
+      VERTEX_CONFIG_ADDR: "http://vertex-config:8090"
+    depends_on: [vertex-config]
+    ports: ["8100:8100"]
+
+  # ---------------------------------------------------------------------
+  # Store-tier Vertex services (one representative store: store-01)
+  # ---------------------------------------------------------------------
+  vertex-core:
+    <<: *go-service
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.service
+      args: {SERVICE: vertex-core}
+    environment:
+      VERTEX_BROKER_ADDR: "mqtt-lb:1883"
+      VERTEX_STORE_ID: "store-01"
+      VERTEX_HTTP_ADDR: ":8081"
+    ports: ["8081:8081"]
+
+  vertex-intervention:
+    <<: *go-service
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.service
+      args: {SERVICE: vertex-intervention}
+    environment:
+      VERTEX_BROKER_ADDR: "mqtt-lb:1883"
+      VERTEX_STORE_ID: "store-01"
+      VERTEX_HTTP_ADDR: ":8082"
+    ports: ["8082:8082"]
+
+  vertex-weight:
+    <<: *go-service
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.service
+      args: {SERVICE: vertex-weight}
+    environment:
+      VERTEX_BROKER_ADDR: "mqtt-lb:1883"
+      VERTEX_STORE_ID: "store-01"
+      VERTEX_HTTP_ADDR: ":8083"
+    ports: ["8083:8083"]
+
+  vertex-agent:
+    <<: *go-service
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.service
+      args: {SERVICE: vertex-agent}
+    environment:
+      VERTEX_BROKER_ADDR: "mqtt-lb:1883"
+      VERTEX_STORE_ID: "store-01"
+      VERTEX_HTTP_ADDR: ":8095"
+      VERTEX_CONFIG_ADDR: "http://vertex-config:8090"
+      VERTEX_CONTROL_PLANE_ADDR: "http://vertex-control-plane:8100"
+      VERTEX_MANAGED_SERVICES: "vertex-core,vertex-intervention,vertex-weight"
+    depends_on: [vertex-config, vertex-control-plane]
+    ports: ["8095:8095"]
+
+  # ---------------------------------------------------------------------
+  # Dashboard
+  # ---------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VITE_CONTROL_PLANE_URL: "http://localhost:8100"
+    ports: ["5173:80"]
+    depends_on: [vertex-control-plane]
+    networks: [vertex]
+
+networks:
+  vertex:
+    driver: bridge
+
+volumes:
+  emqx1-data:
+  emqx2-data:
+  emqx3-data:
+  queue-redis-data:
+  mongo-data:
