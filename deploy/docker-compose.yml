@@ -41,35 +41,49 @@ x-go-service: &go-service
 services:
   # ---------------------------------------------------------------------
   # Messaging: 3-node EMQX cluster + HAProxy VIP (flaw #2 fix)
+  #
+  # EMQX runs distributed Erlang in "longname" mode, which requires each
+  # node name's host part to be a fully-qualified hostname (must contain a
+  # dot) — a bare short name like "emqx1" is rejected with "Hostname emqx1
+  # is illegal". The fix is the same one EMQX's own docker-compose
+  # clustering docs use: give each node a fake internal FQDN and register
+  # it as a network alias on the shared network so peer nodes can actually
+  # resolve it.
   # ---------------------------------------------------------------------
   emqx1:
     image: emqx/emqx:5.4
     hostname: emqx1
     environment:
-      EMQX_NODE_NAME: "emqx@emqx1"
+      EMQX_NODE_NAME: "emqx@emqx1.vertex.internal"
       EMQX_CLUSTER__DISCOVERY_STRATEGY: "static"
-      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1, emqx@emqx2, emqx@emqx3]"
-    networks: [vertex]
+      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1.vertex.internal, emqx@emqx2.vertex.internal, emqx@emqx3.vertex.internal]"
+    networks:
+      vertex:
+        aliases: [emqx1.vertex.internal]
     volumes: [emqx1-data:/opt/emqx/data]
 
   emqx2:
     image: emqx/emqx:5.4
     hostname: emqx2
     environment:
-      EMQX_NODE_NAME: "emqx@emqx2"
+      EMQX_NODE_NAME: "emqx@emqx2.vertex.internal"
       EMQX_CLUSTER__DISCOVERY_STRATEGY: "static"
-      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1, emqx@emqx2, emqx@emqx3]"
-    networks: [vertex]
+      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1.vertex.internal, emqx@emqx2.vertex.internal, emqx@emqx3.vertex.internal]"
+    networks:
+      vertex:
+        aliases: [emqx2.vertex.internal]
     volumes: [emqx2-data:/opt/emqx/data]
 
   emqx3:
     image: emqx/emqx:5.4
     hostname: emqx3
     environment:
-      EMQX_NODE_NAME: "emqx@emqx3"
+      EMQX_NODE_NAME: "emqx@emqx3.vertex.internal"
       EMQX_CLUSTER__DISCOVERY_STRATEGY: "static"
-      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1, emqx@emqx2, emqx@emqx3]"
-    networks: [vertex]
+      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@emqx1.vertex.internal, emqx@emqx2.vertex.internal, emqx@emqx3.vertex.internal]"
+    networks:
+      vertex:
+        aliases: [emqx3.vertex.internal]
     volumes: [emqx3-data:/opt/emqx/data]
 
   mqtt-lb:
