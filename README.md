@@ -1,11 +1,13 @@
 # Vertex SCO Platform
 
+[![CI](https://github.com/udaykishore-resu/vertex-sco-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/udaykishore-resu/vertex-sco-platform/actions/workflows/ci.yml)
+
 A three-tier, event-driven self-checkout (SCO) edge platform — cloud (GCP/GKE-style),
 store (Intelligent Edge Server), and terminal (SCO lane) — redesigned from the
 Jarvis SCO-X reference architecture after an explicit architecture review.
 Every identified flaw has a concrete, working fix in this codebase; see
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full flaw → fix
-mapping and the complete service rename table, and
+mapping and the complete service catalog, and
 [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for exact commands and observed
 results from development.
 

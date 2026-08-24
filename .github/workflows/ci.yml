@@ -1,0 +1,172 @@
+name: CI
+
+# Replaces the generic "Go" starter workflow with pipelines that actually
+# match this repo: correct Go version, gofmt/vet enforcement, the frontend
+# build, docker-compose.yml validation (the exact class of bug that broke
+# the stack twice during development — see docs/RUNBOOK.md), a dynamic
+# Docker build matrix so every cmd/<service> Dockerfile is proven to build
+# on every push without hand-maintaining a service list here, and a guard
+# against reintroducing the legacy "scox" naming that was deliberately
+# removed (see docs/ARCHITECTURE.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.22"
+  NODE_VERSION: "22"
+
+jobs:
+  go:
+    name: Go build, vet, fmt, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+
+      - name: Build (zero third-party dependencies — see go.mod)
+        run: go build -v ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: gofmt check
+        run: |
+          fmt_out="$(gofmt -l .)"
+          if [ -n "$fmt_out" ]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$fmt_out"
+            exit 1
+          fi
+          echo "gofmt clean"
+
+      - name: Test (includes the real MQTT wire-protocol integration test
+          and the circuit-breaker/bulkhead unit tests — see docs/RUNBOOK.md)
+        run: go test -race -v ./...
+
+  frontend:
+    name: Frontend typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run build # tsc -b && vite build
+
+  compose-validate:
+    name: Validate deploy/docker-compose.yml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docker compose config
+        run: docker compose -f deploy/docker-compose.yml config -q
+
+  discover-services:
+    name: Discover cmd/ services for the Docker build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.list.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          services=$(ls cmd | jq -R -s -c 'split("\n")[:-1]')
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "Discovered: $services"
+
+  docker-build:
+    name: Docker build (${{ matrix.service }})
+    needs: discover-services
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.discover-services.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }} image (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.service
+          build-args: |
+            SERVICE=${{ matrix.service }}
+          push: false
+          tags: vertex/${{ matrix.service }}:ci
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  docker-build-frontend:
+    name: Docker build (frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build frontend image (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: false
+          build-args: |
+            VITE_CONTROL_PLANE_URL=http://localhost:18100
+          tags: vertex/frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  shell-lint:
+    name: Shellcheck deploy scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck deploy/check-ports.sh deploy/certs/generate-dev-ca.sh
+
+  scox-regression-check:
+    name: Guard against legacy "scox" naming regressions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: grep for scox
+        # Excludes .github itself: this workflow's own comments/strings
+        # necessarily mention the term to describe what it's guarding
+        # against, which would otherwise make it fail against itself.
+        run: |
+          if grep -rniI "scox" . --exclude-dir=.git --exclude-dir=.github ; then
+            echo
+            echo "Found 'scox' reference(s) above. This naming was deliberately"
+            echo "removed (see docs/ARCHITECTURE.md) — if this is intentional,"
+            echo "update this check; otherwise fix the reference."
+            exit 1
+          fi
+          echo "clean — no legacy naming found"
