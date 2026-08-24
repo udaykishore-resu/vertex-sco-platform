@@ -1,11 +1,11 @@
 # Vertex SCO Platform — Architecture
 
-Vertex SCO Platform is a rename-and-redesign of the Jarvis SCO-X reference
-architecture, produced from an explicit architecture review. Every item
-below traces a flaw identified in that review to a concrete fix implemented
-in this codebase — not just described, but built, compiled, and in most
-cases exercised with a passing automated test or a live smoke test during
-development.
+Vertex SCO Platform is a self-checkout edge platform designed from an
+explicit architecture review of a prior self-checkout reference design.
+Every item below traces a flaw identified in that review to a concrete fix
+implemented in this codebase — not just described, but built, compiled,
+and in most cases exercised with a passing automated test or a live smoke
+test during development.
 
 ## 1. Flaw → Fix map
 

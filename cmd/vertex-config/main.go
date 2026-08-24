@@ -1,5 +1,4 @@
-// vertex-config (formerly jarvisconfigservice + Centralized Config Mgmt)
-// serves versioned configuration to every other Vertex service/store, with
+// vertex-config serves versioned configuration to every other Vertex service/store, with
 // explicit canary percentage and promote/rollback operations — this is the
 // direct fix for "Config/deployment pushes look unversioned... no canary,
 // staged rollout, or automatic rollback": every config change is a new

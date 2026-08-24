@@ -3,9 +3,10 @@
 [![CI](https://github.com/udaykishore-resu/vertex-sco-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/udaykishore-resu/vertex-sco-platform/actions/workflows/ci.yml)
 
 A three-tier, event-driven self-checkout (SCO) edge platform — cloud (GCP/GKE-style),
-store (Intelligent Edge Server), and terminal (SCO lane) — redesigned from the
-Jarvis SCO-X reference architecture after an explicit architecture review.
-Every identified flaw has a concrete, working fix in this codebase; see
+store (Intelligent Edge Server), and terminal (SCO lane) — designed from the
+ground up around an explicit architecture review of a prior self-checkout
+reference design. Every identified flaw has a concrete, working fix in this
+codebase; see
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full flaw → fix
 mapping and the complete service catalog, and
 [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for exact commands and observed
@@ -86,9 +87,10 @@ integration test.
 
 ## Origin
 
-This project renames and redesigns the Jarvis SCO-X architecture following
-an architecture review that identified nine concrete flaws (SPOF coupling,
-no broker HA, overloaded Redis, no zero-trust identity, unversioned
-deploys, store-server SPOF, dual POS integration complexity, no tracing, no
-offline contract). See `docs/ARCHITECTURE.md` §1 for the full mapping from
+This project's design followed an explicit architecture review of a prior
+self-checkout reference design that identified nine concrete flaws (SPOF
+coupling, no broker HA, overloaded Redis, no zero-trust identity,
+unversioned deploys, store-server SPOF, dual POS integration complexity, no
+tracing, no offline contract). See `docs/ARCHITECTURE.md` §1 for the full
+mapping from
 each flaw to its fix in this codebase.
