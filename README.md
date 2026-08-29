@@ -71,15 +71,44 @@ docs/
 ## Quick start
 
 ```bash
-# any single service, no broker needed (falls back to an in-memory bus)
-go build -o /tmp/vertex-core ./cmd/vertex-core && VERTEX_HTTP_ADDR=:8081 /tmp/vertex-core
-
-# full test suite
-go test ./...
-
-# full stack (checks all host ports are free first)
-cd deploy && ./check-ports.sh && docker compose up --build
+make run
 ```
+
+That is the whole thing. `go.mod` has no dependencies, so there is nothing to
+download, no Docker, no broker, no certificates. `make run` builds four
+services — the config store, the fleet control plane, one store-tier service
+and the edge agent — starts them, and walks through what they do:
+
+```
+1. the lane state machine ...
+   checkout  -> PAYMENT   HTTP 200
+   paid      -> COMPLETE  HTTP 200
+   illegal   -> PAYMENT   HTTP 409  (COMPLETE may only go back to IDLE)
+
+2. a canary rollout ...
+   published v1 at 100%, then v2 to 50% of stores
+   store-1=v2 store-2=v2 ... store-8=v1 store-9=v1 store-10=v1
+
+3. the rollback. One call, and every store is back on the old version.
+
+4. the edge agent reconciles ... and reports what it has deployed
+   fleet:  [{"store_id":"store-demo","service_name":"vertex-core","version":1,...}]
+```
+
+Then:
+
+```bash
+make demo        # run that walkthrough again against the running platform
+make run-ui      # the React dashboard on :5173 (needs npm)
+make test        # full test suite
+make compose-up  # all 24 services, EMQX cluster, split Redis, Mongo, Jaeger
+```
+
+The four services `make run` starts talk over HTTP. The event-driven pairs —
+vertex-core publishing `intervention.requested` to vertex-intervention, for
+instance — need the MQTT broker, because with `VERTEX_BROKER_ADDR` unset each
+process falls back to an in-process bus that reaches no one else. That is what
+`make compose-up` is for.
 
 See [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for the full walkthrough, including
 the canary-rollout-and-auto-rollback demo and the MQTT wire-protocol
@@ -94,3 +123,7 @@ unversioned deploys, store-server SPOF, dual POS integration complexity, no
 tracing, no offline contract). See `docs/ARCHITECTURE.md` §1 for the full
 mapping from
 each flaw to its fix in this codebase.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
